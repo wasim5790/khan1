@@ -1,0 +1,181 @@
+provider "aws" {
+  region = "ap-south-1"
+  profile = "wasim"
+}
+
+
+
+
+resource "aws_vpc" "myvpc" {
+  cidr_block       = "192.168.0.0/16"
+  instance_tenancy = "default"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags = {
+    Name = "task3_vpc"
+  }
+}
+resource "aws_subnet" "subnet1" {
+  vpc_id     = "${aws_vpc.myvpc.id}"
+  cidr_block = "192.168.0.0/24"
+  map_public_ip_on_launch = "true"
+  availability_zone="ap-south-1a"
+  tags = {
+    Name = "subnet1"
+  }
+}
+
+
+resource "aws_subnet" "subnet2" {
+  vpc_id     = "${aws_vpc.myvpc.id}"
+  cidr_block = "192.168.1.0/24"
+  map_public_ip_on_launch = "true"
+  availability_zone="ap-south-1b"
+  tags = {
+    Name = "subnet2"
+  }
+}
+
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = "${aws_vpc.myvpc.id}"
+
+
+  tags = {
+    Name = "mygateway"
+  }
+}
+
+
+resource "aws_route_table" "myroutetable" {
+  vpc_id = "${aws_vpc.myvpc.id}"
+
+
+
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_internet_gateway.main.id}"
+  }
+ tags = {
+    Name = "myroutetable"
+  }
+}
+
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.myroutetable.id
+}
+
+
+resource "aws_security_group" "task3_sg" {
+  name        = "task3_sg"
+  description = "Allow public to connect wp"
+  vpc_id      = "${aws_vpc.task3_vpc.id}"
+
+
+
+
+  ingress {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+
+
+  ingress {
+    description = "TLS from VPC"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+
+
+  tags = {
+    Name = "task3_sg"
+  }
+}
+
+
+resource "aws_security_group" "mysql_sg" {
+  name        = "mysql_sg"
+  description = "Allow wp to connect mysql"
+  vpc_id      = "${aws_vpc.task3_vpc.id}"
+
+
+
+
+  ingress {
+    description = "TLS from VPC"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+
+
+  tags = {
+    Name = "mysql_sg"
+  }
+}
+
+
+resource "aws_instance" "wordpressinstance" {
+ami = "ami-000cbce3e1b899ebd"
+instance_type = "t2.micro"
+key_name = "hy-key123"
+subnet_id = "${aws_subnet.subnet1.id}"
+security_groups = ["${aws_security_group.task3_sg.id}"]
+
+
+
+
+tags = {
+   Name = "wordpressinstance"
+  }
+}
+
+
+resource "aws_instance" "mysqlinstance"{
+ami = "ami-08706cb5f68222d09"
+instance_type = "t2.micro"
+key_name = "hy-key123"
+subnet_id = "${aws_subnet.subnet2.id}"
+security_groups = ["${aws_security_group.mysql_sg.id}"]
+
+
+
+
+tags = {
+   Name  = "mysqlinstance"
+  }
+}
